@@ -1,0 +1,4 @@
+*.age
+*.bz2
+*.sql
+.env
