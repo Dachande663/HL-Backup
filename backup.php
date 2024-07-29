@@ -85,29 +85,33 @@ class DumpCommand extends Command
             new Logger($output, $input->getOption('debug')),
         );
 
-        $uploadUrl = $dumper->dump(new DumperOptions(
-            dbHost:            $input->getOption('db-host'),
-            dbPort:            $input->getOption('db-port'),
-            dbUsername:        $input->getOption('db-username'),
-            dbPassword:        $input->getOption('db-password'),
-            dbDatabase:        $input->getOption('db-database'),
-            dbTablesAllowlist: $input->getOption('db-tables-allowlist'),
-            dbTablesBlocklist: $input->getOption('db-tables-blocklist'),
-            encryptionKey:     $input->getOption('encryption-key'),
-            heartbeatStart:    $input->getOption('heartbeat-start'),
-            heartbeatFinish:   $input->getOption('heartbeat-finish'),
-            heartbeatFail:     $input->getOption('heartbeat-fail'),
-            s3AccessKey:       $input->getOption('s3-access-key'),
-            s3SecretKey:       $input->getOption('s3-secret-key'),
-            s3Endpoint:        $input->getOption('s3-endpoint'),
-            s3Region:          $input->getOption('s3-region'),
-            s3Bucket:          $input->getOption('s3-bucket'),
-            s3FileName:        $input->getOption('s3-file-name'),
-            dryRun:            $input->getOption('dry-run'),
-        ));
-
-        $output->line($uploadUrl);
-        return ResultCode::SUCCESS;
+        try {
+            $uploadUrl = $dumper->dump(new DumperOptions(
+                dbHost:            $input->getOption('db-host'),
+                dbPort:            $input->getOption('db-port'),
+                dbUsername:        $input->getOption('db-username'),
+                dbPassword:        $input->getOption('db-password'),
+                dbDatabase:        $input->getOption('db-database'),
+                dbTablesAllowlist: $input->getOption('db-tables-allowlist'),
+                dbTablesBlocklist: $input->getOption('db-tables-blocklist'),
+                encryptionKey:     $input->getOption('encryption-key'),
+                heartbeatStart:    $input->getOption('heartbeat-start'),
+                heartbeatFinish:   $input->getOption('heartbeat-finish'),
+                heartbeatFail:     $input->getOption('heartbeat-fail'),
+                s3AccessKey:       $input->getOption('s3-access-key'),
+                s3SecretKey:       $input->getOption('s3-secret-key'),
+                s3Endpoint:        $input->getOption('s3-endpoint'),
+                s3Region:          $input->getOption('s3-region'),
+                s3Bucket:          $input->getOption('s3-bucket'),
+                s3FileName:        $input->getOption('s3-file-name'),
+                dryRun:            $input->getOption('dry-run'),
+            ));
+            $output->line($uploadUrl);
+            return ResultCode::SUCCESS;
+        } catch (\DumperException $e) {
+            $output->error('Dump failed to complete: ' . $e->getMessage());
+            return ResultCode::ERROR;
+        }
     }
 }
 
@@ -775,8 +779,6 @@ class Dumper
             $this->logger->debug('  database dumped successfully');
             $this->logger->debug('  dump size = ' . $this->bytesToHuman($filesize));
             $this->logger->debug('');
-
-            $this->cleanupFiles();
 
             return $outputFile;
 
