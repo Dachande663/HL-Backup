@@ -623,13 +623,14 @@ class Dumper
         if ($url === null || $url === '') {
             return;
         }
-        $this->logger->debug("sending heartbeat: $url " . http_build_query($data));
+        $queryString = $data ? http_build_query($data) : '';
+        $this->logger->debug("sending heartbeat: $url " . $queryString);
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_POST, 1);
         if ($data && count($data) > 0) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $queryString);
         }
         curl_exec($ch);
         curl_close($ch);
