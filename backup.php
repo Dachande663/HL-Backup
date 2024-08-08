@@ -750,9 +750,11 @@ class Dumper
             $args[] = '--add-drop-table';
             $args[] = '--add-locks';
             $args[] = '--allow-keywords';
+            $args[] = '--compress';
             $args[] = '--create-options';
             $args[] = '--disable-keys';
             $args[] = '--extended-insert';
+            $args[] = '--max_allowed_packet=512M';
             $args[] = '--no-tablespaces';
             $args[] = '--quick';
             $args[] = '--set-charset';
