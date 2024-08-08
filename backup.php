@@ -62,6 +62,7 @@ class DumpCommand extends Command
             new InputOption('db-database',          required: true,  cast: InputOptionCast::STRING, default: null,        description: 'The database to export'),
             new InputOption('db-tables-allowlist',  required: false, cast: InputOptionCast::ARRAY,  default: [],          description: 'A comma-separated list of tables to export'),
             new InputOption('db-tables-blocklist',  required: false, cast: InputOptionCast::ARRAY,  default: [],          description: 'A comma-separated list of tables to skip'),
+            new InputOption('compression-level',    required: true,  cast: InputOptionCast::INT,    default: 6,           description: 'Compression level from 0 to 9'),
             new InputOption('encryption-key',       required: true,  cast: InputOptionCast::STRING, default: null,        description: 'The age public key to encrypt the file with'),
             new InputOption('heartbeat-start',      required: false, cast: InputOptionCast::STRING, default: null,        description: 'A URL to POST to when starting an export'),
             new InputOption('heartbeat-finish',     required: false, cast: InputOptionCast::STRING, default: null,        description: 'A URL to POST to when an export finishes'),
@@ -71,7 +72,7 @@ class DumpCommand extends Command
             new InputOption('s3-endpoint',          required: false, cast: InputOptionCast::STRING, default: null,        description: 'S3 endpoint e.g. https://s3.us-west-001.backblazeb2.com to use Backblaze B2'),
             new InputOption('s3-region',            required: false, cast: InputOptionCast::STRING, default: null,        description: 'S3 region'),
             new InputOption('s3-bucket',            required: true,  cast: InputOptionCast::STRING, default: null,        description: 'S3 bucket'),
-            new InputOption('s3-file-name',         required: false, cast: InputOptionCast::STRING, default: 'export-{{database}}-{{YYYY}}-{{MM}}-{{DD}}-{{hh}}{{mm}}{{ss}}.sql.bz2.age', description: 'The destination filename for S3. Can include directories and substitutions.'),
+            new InputOption('s3-file-name',         required: false, cast: InputOptionCast::STRING, default: 'export-{{database}}-{{YYYY}}-{{MM}}-{{DD}}-{{hh}}{{mm}}{{ss}}.sql.xz.age', description: 'The destination filename for S3. Can include directories and substitutions.'),
             new InputOption('debug',                required: false, cast: InputOptionCast::BOOL,   default: false,       description: 'If set, output debug information'),
             new InputOption('dry-run',              required: false, cast: InputOptionCast::BOOL,   default: false,       description: 'If set, perform the export but don\'t upload'),
             new InputOption('help', description: 'Get help about this method'),
@@ -94,6 +95,7 @@ class DumpCommand extends Command
                 dbDatabase:        $input->getOption('db-database'),
                 dbTablesAllowlist: $input->getOption('db-tables-allowlist'),
                 dbTablesBlocklist: $input->getOption('db-tables-blocklist'),
+                compressionLevel:  $input->getOption('compression-level'),
                 encryptionKey:     $input->getOption('encryption-key'),
                 heartbeatStart:    $input->getOption('heartbeat-start'),
                 heartbeatFinish:   $input->getOption('heartbeat-finish'),
@@ -255,10 +257,10 @@ class Application
 
         $checks = [
             'age'       => ['bin' => 'age',       'version_flag' => '--version'],
-            'bzip2'     => ['bin' => 'bzip2',     'version_flag' => '--version'],
             'mysqldump' => ['bin' => 'mysqldump', 'version_flag' => '--version'],
             'php'       => ['bin' => 'php',       'version_flag' => '--version'],
             's5cmd'     => ['bin' => 's5cmd',     'version_flag' => 'version'],
+            'xz'        => ['bin' => 'xz',        'version_flag' => '--version'],
         ];
 
         $output = [];
@@ -541,6 +543,7 @@ class DumperOptions
         public readonly string $dbDatabase,
         public readonly array $dbTablesAllowlist,
         public readonly array $dbTablesBlocklist,
+        public readonly int $compressionLevel,
         public readonly ?string $encryptionKey,
         public readonly string $heartbeatStart,
         public readonly string $heartbeatFinish,
@@ -563,6 +566,8 @@ class DumperException extends \Exception
 
 class Dumper
 {
+    const DEFAULT_COMPRESSION = 6;
+
     public function __construct(
         private Application $app,
         private DumperLogger $logger,
@@ -791,9 +796,9 @@ class Dumper
         }
     }
 
-    private function compressDump(string $inputFile): string
+    private function compressDump(string $inputFile, DumperOptions $opts): string
     {
-        $outputFile = "$inputFile.bz2";
+        $outputFile = "$inputFile.xz";
         $this->filesToCleanup[] = $outputFile;
 
         try {
@@ -801,11 +806,11 @@ class Dumper
             $this->logger->debug('compressing...');
 
             [$result, $output] = $this->executeCmd([
-                'bzip2',
+                'xz',
                 '--compress', // compress the file
-                '--best', // use best compression, at expense of it taking longer
                 '--keep', // keep the original file
                 '--force', // overwrite any existing file in output location
+                '-' . escapeshellarg($opts->compressionLevel >= 0 && $opts->compressionLevel <= 9 ? (string) $opts->compressionLevel : self::DEFAULT_COMPRESSION),
                 escapeshellarg($inputFile), // input file
                 '> ' . escapeshellarg($outputFile), // output file
             ]);

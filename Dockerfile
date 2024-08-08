@@ -1,7 +1,7 @@
 FROM php:8.3-cli
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends age bzip2 ca-certificates curl default-mysql-client \
+    && apt-get install -y --no-install-recommends age ca-certificates curl default-mysql-client \
     && docker-php-ext-install pdo_mysql
 
 RUN curl -LJ -o /tmp/s5cmd.tar.gz https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
