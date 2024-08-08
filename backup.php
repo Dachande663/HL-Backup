@@ -376,7 +376,7 @@ class Input
 
         foreach ($keyedOptions as $key => $option) {
             if (!array_key_exists($key, $rawInputs)) {
-                if ($option->isRequired()) {
+                if ($option->isRequired() && $option->getDefault() === null) {
                     throw new AppException("The --$key option is required.");
                 }
                 $value = $option->getDefault();
