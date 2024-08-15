@@ -613,9 +613,12 @@ class Dumper
                 $this->sendHeartbeat($opts->heartbeatFinish, ['time_taken' => round($timerEnd-$timerStart, 4), 'uploaded_url' => $uploadUrl]);
             }
 
+            $this->cleanupFiles();
+
             return $uploadUrl;
 
         } catch (DumperException $e) {
+            $this->cleanupFiles();
             if (!$opts->dryRun) {
                 $this->sendHeartbeat($opts->heartbeatFail, ['error' => $e->getMessage()]);
             }
