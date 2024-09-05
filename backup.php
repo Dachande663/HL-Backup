@@ -901,33 +901,35 @@ class Dumper
 
         $outputUrl = 's3://' . $opts->s3Bucket . '/' . ltrim($filename, '/');
 
+        $maxAttempts = 3;
+
         try {
-
             $this->logger->debug('uploading...');
-
             $this->logger->debug('  destination: ' . $outputUrl);
 
-            [$result, $output] = $this->executeCmd([
-                'AWS_ACCESS_KEY_ID=' . escapeshellarg($opts->s3AccessKey),
-                'AWS_SECRET_ACCESS_KEY=' . escapeshellarg($opts->s3SecretKey),
-                'AWS_REGION=' . escapeshellarg($opts->s3Region),
-                's5cmd',
-                '--endpoint-url=' . escapeshellarg($opts->s3Endpoint),
-                'cp',
-                escapeshellarg($inputFile),
-                escapeshellarg($outputUrl),
-            ], debugReplace: [
-                escapeshellarg($opts->s3AccessKey),
-                escapeshellarg($opts->s3SecretKey),
-            ]);
-
-            if ($result !== 0) {
-                throw new DumperException('Unable to upload file: ' . implode("\n", $output));
+            for ($currentAttempt = 1; $currentAttempt <= $maxAttempts; $currentAttempt++) {
+                [$result, $output] = $this->executeCmd([
+                    'AWS_ACCESS_KEY_ID=' . escapeshellarg($opts->s3AccessKey),
+                    'AWS_SECRET_ACCESS_KEY=' . escapeshellarg($opts->s3SecretKey),
+                    'AWS_REGION=' . escapeshellarg($opts->s3Region),
+                    's5cmd',
+                    '--endpoint-url=' . escapeshellarg($opts->s3Endpoint),
+                    '--retry-count=10',
+                    'cp',
+                    escapeshellarg($inputFile),
+                    escapeshellarg($outputUrl),
+                ], debugReplace: [
+                    escapeshellarg($opts->s3AccessKey),
+                    escapeshellarg($opts->s3SecretKey),
+                ]);
+                if ($result === 0) {
+                    $this->logger->debug("  file uploaded, attempts: $currentAttempt");
+                    $this->logger->debug('');
+                    return $outputUrl;
+                }
             }
-            $this->logger->debug('  file uploaded');
-            $this->logger->debug('');
 
-            return $outputUrl;
+            throw new DumperException('Unable to upload file: ' . implode("\n", $output));
 
         } catch (\Exception $e) {
             $this->cleanupFiles();
@@ -935,7 +937,7 @@ class Dumper
         }
     }
 
-    private function executeCmd(array $args, array $debugReplace = []): array
+    private function executeCmd(array $args, array $debugReplace = [], bool $captureStderr = true): array
     {
         $cmd = implode(' ', $args);
 
@@ -944,6 +946,9 @@ class Dumper
             foreach ($debugReplace as $str) {
                 $replacePairs[$str] = str_repeat('*', mb_strlen($str));
             }
+        }
+        if ($captureStderr) {
+            $cmd .= ' 2>&1';
         }
         $this->logger->debug('  running command: ' . strtr($cmd, $replacePairs));
 
